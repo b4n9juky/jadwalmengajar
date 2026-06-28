@@ -19,6 +19,23 @@ export declare const assignments: import("drizzle-orm/mysql-core").MySqlTableWit
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        academicYearId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "academic_year_id";
+            tableName: "assignments";
+            dataType: "string";
+            columnType: "MySqlVarChar";
+            data: string;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         teacherId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "teacher_id";
             tableName: "assignments";

@@ -19,6 +19,23 @@ export declare const timeSlots: import("drizzle-orm/mysql-core").MySqlTableWithC
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        academicYearId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "academic_year_id";
+            tableName: "time_slots";
+            dataType: "string";
+            columnType: "MySqlVarChar";
+            data: string;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         dayOfWeek: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "day_of_week";
             tableName: "time_slots";

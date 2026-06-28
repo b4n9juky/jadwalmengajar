@@ -1,44 +1,44 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../api/client';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useRooms } from '../hooks/useQueries';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
 import type { Room } from '../types';
 import { v4 as uuid } from 'uuid';
 
-const empty: Room = { id: '', name: '', code: '', capacity: 30 };
+const empty: Room = { id: '', name: '', code: '', capacity: 30, academicYearId: '' };
 
 export default function Rooms() {
-  const [data, setData] = useState<Room[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, save, remove, refetch } = useRooms(ayId);
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Room | null>(null);
   const [form, setForm] = useState(empty);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => { api.getRooms().then(setData); }, []);
-  useEffect(load, [load]);
-
-  const add = () => { setEdit(null); setForm({ ...empty, id: uuid() }); setShow(true); };
+  const add = () => { setEdit(null); setForm({ ...empty, id: uuid(), academicYearId: ayId! }); setShow(true); };
   const openEdit = (r: Room) => { setEdit(r); setForm({ ...r }); setShow(true); };
 
-  const save = async () => {
-    await api.saveRoom({ ...form, capacity: Number(form.capacity) });
+  const handleSave = async () => {
+    await save.mutateAsync({ ...form, capacity: Number(form.capacity) });
     setShow(false);
-    load();
   };
 
-  const remove = async (r: Room) => {
-    if (window.confirm(`Hapus ${r.name}?`)) { await api.deleteRoom(r.id); load(); }
+  const handleRemove = async (r: Room) => {
+    if (window.confirm(`Hapus ${r.name}?`)) await remove.mutateAsync(r.id);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !ayId) return;
     setImporting(true);
     try {
-      const result = await api.importRooms(file);
+      const result = await api.importRooms(ayId, file);
       alert(`Berhasil import ${result.imported} ruangan`);
-      load();
+      refetch();
     } catch {
       alert('Gagal import file');
     }
@@ -82,7 +82,7 @@ export default function Rooms() {
         data={data}
         keyExtractor={(r) => r.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
         emptyMessage="Belum ada ruangan"
       />
       {show && (
@@ -95,7 +95,7 @@ export default function Rooms() {
           ]}
           values={form as unknown as Record<string, unknown>}
           onChange={set}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShow(false)}
         />
       )}

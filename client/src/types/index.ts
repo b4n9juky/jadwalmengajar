@@ -1,5 +1,6 @@
 export interface Teacher {
   id: string;
+  academicYearId: string;
   name: string;
   nip: string;
   phone: string;
@@ -8,6 +9,7 @@ export interface Teacher {
 
 export interface Subject {
   id: string;
+  academicYearId: string;
   name: string;
   code: string;
   totalSessions: number;
@@ -15,6 +17,7 @@ export interface Subject {
 
 export interface ClassGroup {
   id: string;
+  academicYearId: string;
   name: string;
   gradeLevel: number;
   section: string;
@@ -22,6 +25,7 @@ export interface ClassGroup {
 
 export interface Room {
   id: string;
+  academicYearId: string;
   name: string;
   code: string;
   capacity: number;
@@ -29,6 +33,7 @@ export interface Room {
 
 export interface TimeSlot {
   id: string;
+  academicYearId: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -37,6 +42,7 @@ export interface TimeSlot {
 
 export interface TeacherAvailability {
   id: string;
+  academicYearId: string;
   teacherId: string;
   dayOfWeek: number;
   startTime: string;
@@ -45,6 +51,7 @@ export interface TeacherAvailability {
 
 export interface TeachingAssignment {
   id: string;
+  academicYearId: string;
   teacherId: string;
   subjectId: string;
   classId: string;
@@ -53,6 +60,7 @@ export interface TeachingAssignment {
 
 export interface ScheduleEntry {
   id: string;
+  academicYearId: string;
   teacherId: string;
   subjectId: string;
   classId: string;

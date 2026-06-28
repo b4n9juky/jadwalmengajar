@@ -1,6 +1,7 @@
 import { mysqlTable, varchar, timestamp, tinyint } from 'drizzle-orm/mysql-core';
 export const schedules = mysqlTable('schedules', {
     id: varchar('id', { length: 36 }).primaryKey(),
+    academicYearId: varchar('academic_year_id', { length: 36 }).notNull(),
     teacherId: varchar('teacher_id', { length: 36 }).notNull(),
     subjectId: varchar('subject_id', { length: 36 }).notNull(),
     classId: varchar('class_id', { length: 36 }).notNull(),

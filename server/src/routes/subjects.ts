@@ -25,7 +25,9 @@ router.post('/', async (req, res) => {
     return;
   }
   const data = { id: id || uuid(), academicYearId, name, code, totalSessions: Number(totalSessions) || 0 };
-  await db.insert(subjects).values(data);
+  await db.insert(subjects).values(data).onDuplicateKeyUpdate({
+    set: { name, code, totalSessions: Number(totalSessions) },
+  });
   res.json(data);
 });
 

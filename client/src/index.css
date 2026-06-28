@@ -352,6 +352,11 @@ body {
   min-width: 800px;
 }
 
+.schedule-grid.days-6 {
+  grid-template-columns: 100px repeat(6, 1fr);
+  min-width: 960px;
+}
+
 .schedule-time-header {
   background: #f1f5f9;
   padding: .5rem;

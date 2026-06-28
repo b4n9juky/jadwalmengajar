@@ -1,34 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { useMemo, useState } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useTimeSlots, useSettings } from '../hooks/useQueries';
 import type { TimeSlot } from '../types';
 import { getDays, getMaxDay } from '../types';
 import { v4 as uuid } from 'uuid';
 
 export default function TimeSlots() {
-  const [data, setData] = useState<TimeSlot[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, saveOne, saveAll } = useTimeSlots(ayId);
+  const { data: settings } = useSettings();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [schoolType, setSchoolType] = useState('negeri');
 
+  const schoolType = settings?.schoolType || 'negeri';
   const days = getDays(schoolType);
   const maxDay = getMaxDay(schoolType);
 
-  const load = useCallback(() => {
-    Promise.all([api.getTimeSlots(), api.getSettings()]).then(([slots, settings]) => {
-      setData(slots);
-      setSchoolType(settings.schoolType || 'negeri');
-    });
-  }, []);
-  useEffect(load, [load]);
-
-  const sorted = [...data].sort(
-    (a, b) => a.dayOfWeek - b.dayOfWeek || timeToMin(a.startTime) - timeToMin(b.startTime)
+  const sorted = useMemo(
+    () => [...data].sort((a, b) => a.dayOfWeek - b.dayOfWeek || timeToMin(a.startTime) - timeToMin(b.startTime)),
+    [data],
   );
 
   const updateSlot = async (id: string, patch: Partial<TimeSlot>) => {
     const slot = data.find((s) => s.id === id);
     if (!slot) return;
-    await api.saveTimeSlot({ ...slot, ...patch });
-    load();
+    await saveOne.mutateAsync({ ...slot, ...patch });
   };
 
   const addSlot = async (day: number) => {
@@ -37,20 +33,18 @@ export default function TimeSlots() {
     const start = last ? last.endTime : '07:30';
     const startM = timeToMin(start);
     const end = minutesToTime(startM + 45);
-    await api.saveTimeSlot({
+    await saveOne.mutateAsync({
       id: uuid(),
       dayOfWeek: day,
       startTime: start,
       endTime: end,
       type: 'teaching',
+      academicYearId: ayId!,
     });
-    load();
   };
 
   const removeSlot = async (slot: TimeSlot) => {
-    const all = await api.getTimeSlots();
-    await api.saveAllTimeSlots(all.filter((s) => s.id !== slot.id));
-    load();
+    await saveAll.mutateAsync({ slots: data.filter((s) => s.id !== slot.id) });
   };
 
   const fixTimeAfterEdit = (slot: TimeSlot, field: 'startTime' | 'endTime', rawValue: string) => {
@@ -73,12 +67,10 @@ export default function TimeSlots() {
   };
 
   const resetToDefault = async () => {
-    const store = await api.getTimeSlots();
-    const oldIds = new Set(store.map((s) => s.id));
-    const defaults = generateDefaultTimeSlots(maxDay);
+    const defaults = generateDefaultTimeSlots(maxDay, ayId!);
+    const oldIds = new Set(data.map((s) => s.id));
     const merged = defaults.map((d, i) => ({ ...d, id: [...oldIds][i] || uuid() }));
-    await api.saveAllTimeSlots(merged);
-    load();
+    await saveAll.mutateAsync({ slots: merged });
   };
 
   return (
@@ -88,10 +80,10 @@ export default function TimeSlots() {
         <button className="btn btn-outline" onClick={resetToDefault}>Reset ke Default</button>
       </div>
       <p className="text-sm text-secondary mb-2">
-        Atur slot waktu pelajaran per hari. Setiap slot punya durasi fleksibel — klik waktu untuk mengedit. Break (istirahat) tidak digunakan dalam penjadwalan otomatis.
+        Atur slot waktu pelajaran per hari. Setiap slot punya durasi fleksibel - klik waktu untuk mengedit. Break (istirahat) tidak digunakan dalam penjadwalan otomatis.
       </p>
       <div className="timeline-container">
-        <div className="schedule-grid">
+        <div className={`schedule-grid${maxDay === 6 ? ' days-6' : ''}`}>
           <div className="schedule-day-header">Waktu</div>
           {days.map((d) => <div key={d} className="schedule-day-header">{d}</div>)}
 
@@ -183,7 +175,7 @@ function renderTimeRows(
             className="btn-icon"
             style={{ position: 'absolute', top: 1, right: 1, width: 18, height: 18, fontSize: '.4375rem' }}
             onClick={(e) => { e.stopPropagation(); removeSlot(slot); }}
-          >✕</span>
+          >x</span>
         </div>
       );
     }
@@ -251,7 +243,7 @@ function durasi(start: string, end: string): string {
   return `${Math.floor(d / 60)} j ${d % 60} mnt`;
 }
 
-function generateDefaultTimeSlots(maxDay: number): TimeSlot[] {
+function generateDefaultTimeSlots(maxDay: number, academicYearId: string): TimeSlot[] {
   const DEFAULT_SLOTS: { start: string; end: string; type: 'teaching' | 'break' }[] = [
     { start: '07:30', end: '08:15', type: 'teaching' },
     { start: '08:15', end: '09:00', type: 'teaching' },
@@ -269,7 +261,7 @@ function generateDefaultTimeSlots(maxDay: number): TimeSlot[] {
   let id = 1;
   for (let day = 1; day <= maxDay; day++) {
     for (const s of DEFAULT_SLOTS) {
-      slots.push({ id: `ts${id++}`, dayOfWeek: day, startTime: s.start, endTime: s.end, type: s.type });
+      slots.push({ id: `ts${id++}`, dayOfWeek: day, startTime: s.start, endTime: s.end, type: s.type, academicYearId });
     }
   }
   return slots;

@@ -1,48 +1,46 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../api/client';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useTeachers } from '../hooks/useQueries';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
 import type { Teacher } from '../types';
 import { v4 as uuid } from 'uuid';
 
-const empty: Teacher = { id: '', name: '', nip: '', phone: '', email: '' };
+const empty: Teacher = { id: '', name: '', nip: '', phone: '', email: '', academicYearId: '' };
 
 export default function Teachers() {
-  const [data, setData] = useState<Teacher[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, save, remove, refetch } = useTeachers(ayId);
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Teacher | null>(null);
   const [form, setForm] = useState(empty);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => { api.getTeachers().then(setData); }, []);
-
-  useEffect(load, [load]);
-
-  const openAdd = () => { setEdit(null); setForm({ ...empty, id: uuid() }); setShow(true); };
+  const openAdd = () => { setEdit(null); setForm({ ...empty, id: uuid(), academicYearId: ayId! }); setShow(true); };
   const openEdit = (t: Teacher) => { setEdit(t); setForm({ ...t }); setShow(true); };
 
-  const save = async () => {
-    await api.saveTeacher(form);
+  const handleSave = async () => {
+    await save.mutateAsync(form);
     setShow(false);
-    load();
   };
 
-  const remove = async (t: Teacher) => {
+  const handleRemove = async (t: Teacher) => {
     if (window.confirm(`Hapus guru ${t.name}?`)) {
-      await api.deleteTeacher(t.id);
-      load();
+      await remove.mutateAsync(t.id);
     }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !ayId) return;
     setImporting(true);
     try {
-      const result = await api.importTeachers(file);
+      const result = await api.importTeachers(ayId, file);
       alert(`Berhasil import ${result.imported} guru`);
-      load();
+      refetch();
     } catch {
       alert('Gagal import file');
     }
@@ -87,7 +85,7 @@ export default function Teachers() {
         data={data}
         keyExtractor={(t) => t.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
         emptyMessage="Belum ada data guru"
       />
       {show && (
@@ -101,7 +99,7 @@ export default function Teachers() {
           ]}
           values={form as unknown as Record<string, unknown>}
           onChange={set}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShow(false)}
         />
       )}

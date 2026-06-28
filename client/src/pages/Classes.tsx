@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../api/client';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useClasses } from '../hooks/useQueries';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
 import type { ClassGroup } from '../types';
 import { v4 as uuid } from 'uuid';
 
-const empty: ClassGroup = { id: '', name: '', gradeLevel: 7, section: '' };
+const empty: ClassGroup = { id: '', name: '', gradeLevel: 7, section: '', academicYearId: '' };
 
 const GRADE_OPTIONS = [
   { value: '7', label: '7' }, { value: '8', label: '8' }, { value: '9', label: '9' },
@@ -13,37 +15,35 @@ const GRADE_OPTIONS = [
 ];
 
 export default function Classes() {
-  const [data, setData] = useState<ClassGroup[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, save, remove, refetch } = useClasses(ayId);
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<ClassGroup | null>(null);
   const [form, setForm] = useState(empty);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => { api.getClasses().then(setData); }, []);
-  useEffect(load, [load]);
-
-  const add = () => { setEdit(null); setForm({ ...empty, id: uuid() }); setShow(true); };
+  const add = () => { setEdit(null); setForm({ ...empty, id: uuid(), academicYearId: ayId! }); setShow(true); };
   const openEdit = (c: ClassGroup) => { setEdit(c); setForm({ ...c }); setShow(true); };
 
-  const save = async () => {
-    await api.saveClass({ ...form, gradeLevel: Number(form.gradeLevel) });
+  const handleSave = async () => {
+    await save.mutateAsync({ ...form, gradeLevel: Number(form.gradeLevel) });
     setShow(false);
-    load();
   };
 
-  const remove = async (c: ClassGroup) => {
-    if (window.confirm(`Hapus kelas ${c.name}?`)) { await api.deleteClass(c.id); load(); }
+  const handleRemove = async (c: ClassGroup) => {
+    if (window.confirm(`Hapus kelas ${c.name}?`)) await remove.mutateAsync(c.id);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !ayId) return;
     setImporting(true);
     try {
-      const result = await api.importClasses(file);
+      const result = await api.importClasses(ayId, file);
       alert(`Berhasil import ${result.imported} kelas`);
-      load();
+      refetch();
     } catch {
       alert('Gagal import file');
     }
@@ -87,7 +87,7 @@ export default function Classes() {
         data={data}
         keyExtractor={(c) => c.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
         emptyMessage="Belum ada kelas"
       />
       {show && (
@@ -100,7 +100,7 @@ export default function Classes() {
           ]}
           values={form as unknown as Record<string, unknown>}
           onChange={set}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShow(false)}
         />
       )}

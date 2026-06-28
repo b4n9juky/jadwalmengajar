@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DndContext, DragOverlay, useDraggable, useDroppable, closestCenter } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import * as XLSX from 'xlsx';
-import { api } from '../api/client';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import {
+  useSchedules, useTimeSlots, useTeachers, useSubjects,
+  useClasses, useRooms, useSettings,
+} from '../hooks/useQueries';
 import type {
-  ScheduleEntry, Teacher, Subject, ClassGroup, Room,
-  TimeSlot,
+  ScheduleEntry, Teacher, Subject, ClassGroup, Room, TimeSlot,
 } from '../types';
 import { getDays, getMaxDay, SUBJECT_COLORS } from '../types';
 
@@ -19,51 +22,39 @@ interface DragItem {
 }
 
 export default function Schedule() {
-  const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<ClassGroup[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [conflicts, setConflicts] = useState<string[]>([]);
-  const [generating, setGenerating] = useState(false);
-  const [activeDrag, setActiveDrag] = useState<DragItem | null>(null);
-  const [schoolType, setSchoolType] = useState('negeri');
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
 
+  const { data: schedules, save, clear, generate } = useSchedules(ayId);
+  const { data: allTimeSlots } = useTimeSlots(ayId);
+  const { data: teachers } = useTeachers(ayId);
+  const { data: subjects } = useSubjects(ayId);
+  const { data: classes } = useClasses(ayId);
+  const { data: rooms } = useRooms(ayId);
+  const { data: settings } = useSettings();
+
+  const schoolType = settings?.schoolType || 'negeri';
   const days = getDays(schoolType);
   const maxDay = getMaxDay(schoolType);
   const dayNumbers = Array.from({ length: maxDay }, (_, i) => i + 1);
 
-  const load = useCallback(() => {
-    Promise.all([
-      api.getSchedules(), api.getTimeSlots(), api.getTeachers(),
-      api.getSubjects(), api.getClasses(), api.getRooms(),
-      api.getSettings(),
-    ]).then(([sch, ts, t, s, c, r, settings]) => {
-      setSchedules(sch);
-      setTimeSlots(ts.filter((x) => x.type === 'teaching').sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime)));
-      setTeachers(t);
-      setSubjects(s);
-      setClasses(c);
-      setRooms(r);
-      setSchoolType(settings.schoolType || 'negeri');
-    });
-  }, []);
+  const timeSlots = useMemo(
+    () => allTimeSlots.filter((x) => x.type === 'teaching').sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime)),
+    [allTimeSlots],
+  );
 
-  useEffect(load, [load]);
+  const [conflicts, setConflicts] = useState<string[]>([]);
+  const [activeDrag, setActiveDrag] = useState<DragItem | null>(null);
 
-  const generate = async () => {
-    setGenerating(true);
-    const result = await api.generateSchedule();
+  const handleGenerate = async () => {
+    const result = await generate.mutateAsync();
     setConflicts(result.conflicts);
-    load();
-    setGenerating(false);
   };
 
-  const clearAll = async () => {
+  const handleClear = async () => {
     if (window.confirm('Hapus semua jadwal?')) {
-      await api.clearSchedules();
-      load();
+      await clear.mutateAsync();
+      setConflicts([]);
     }
   };
 
@@ -95,10 +86,9 @@ export default function Schedule() {
       XLSX.utils.book_append_sheet(wb, ws2, 'Konflik');
     }
 
-    const colWidths = [
+    ws1['!cols'] = [
       { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 30 }, { wch: 10 }, { wch: 16 },
     ];
-    ws1['!cols'] = colWidths;
 
     XLSX.writeFile(wb, `jadwal_sekolah_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
@@ -146,8 +136,7 @@ export default function Schedule() {
       return;
     }
 
-    await api.saveSchedule({ ...entry, timeSlotId: targetSlotId });
-    load();
+    await save.mutateAsync({ ...entry, timeSlotId: targetSlotId });
   };
 
   return (
@@ -155,12 +144,12 @@ export default function Schedule() {
       <div className="page-header">
         <h1>Jadwal Pelajaran</h1>
         <div className="flex gap-2">
-          <button className="btn btn-outline" onClick={clearAll}>Hapus Semua</button>
+          <button className="btn btn-outline" onClick={handleClear}>Hapus Semua</button>
           <button className="btn btn-outline" onClick={exportExcel} disabled={schedules.length === 0}>
             Export Excel
           </button>
-          <button className="btn btn-primary" onClick={generate} disabled={generating}>
-            {generating ? 'Memproses...' : 'Buat Jadwal Otomatis'}
+          <button className="btn btn-primary" onClick={handleGenerate} disabled={generate.isPending}>
+            {generate.isPending ? 'Memproses...' : 'Buat Jadwal Otomatis'}
           </button>
         </div>
       </div>
@@ -176,7 +165,7 @@ export default function Schedule() {
 
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
         <div className="timeline-container">
-          <div className="schedule-grid">
+          <div className={`schedule-grid${maxDay === 6 ? ' days-6' : ''}`}>
             <div className="schedule-day-header">Waktu</div>
             {days.map((d) => <div key={d} className="schedule-day-header">{d}</div>)}
 

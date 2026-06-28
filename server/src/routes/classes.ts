@@ -25,9 +25,21 @@ router.post('/', async (req, res) => {
     return;
   }
   const data = { id: id || uuid(), academicYearId, name, gradeLevel: Number(gradeLevel), section };
-  await db.insert(classes).values(data);
+  await db.insert(classes).values(data).onDuplicateKeyUpdate({
+    set: { name, gradeLevel: Number(gradeLevel), section },
+  });
   res.json(data);
 });
 
 router.put('/:id', async (req, res) => {
-  const { academicYearId, name, gradeL
+  const { academicYearId, name, gradeLevel, section } = req.body;
+  await db.update(classes).set({ name, gradeLevel: Number(gradeLevel), section }).where(eq(classes.id, req.params.id));
+  res.json({ id: req.params.id, academicYearId, name, gradeLevel, section });
+});
+
+router.delete('/:id', async (req, res) => {
+  await db.delete(classes).where(eq(classes.id, req.params.id));
+  res.json({ ok: true });
+});
+
+export default router;

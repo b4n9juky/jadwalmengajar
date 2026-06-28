@@ -4,14 +4,26 @@ import { availabilities } from '../db/schema/availabilities';
 import { eq } from 'drizzle-orm';
 import { v4 as uuid } from 'uuid';
 const router = Router();
-router.get('/', async (_req, res) => {
-    const data = await db.select().from(availabilities);
+router.get('/', async (req, res) => {
+    const academicYearId = req.query.academicYearId;
+    if (!academicYearId) {
+        res.status(400).json({ error: 'academicYearId required' });
+        return;
+    }
+    const data = await db.select().from(availabilities)
+        .where(eq(availabilities.academicYearId, academicYearId));
     res.json(data);
 });
 router.post('/', async (req, res) => {
-    const { id, teacherId, dayOfWeek, startTime, endTime } = req.body;
-    const data = { id: id || uuid(), teacherId, dayOfWeek: Number(dayOfWeek), startTime, endTime };
-    await db.insert(availabilities).values(data);
+    const { id, academicYearId, teacherId, dayOfWeek, startTime, endTime } = req.body;
+    if (!academicYearId) {
+        res.status(400).json({ error: 'academicYearId required' });
+        return;
+    }
+    const data = { id: id || uuid(), academicYearId, teacherId, dayOfWeek: Number(dayOfWeek), startTime, endTime };
+    await db.insert(availabilities).values(data).onDuplicateKeyUpdate({
+        set: { teacherId, dayOfWeek: Number(dayOfWeek), startTime, endTime },
+    });
     res.json(data);
 });
 router.put('/:id', async (req, res) => {

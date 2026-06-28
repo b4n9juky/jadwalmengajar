@@ -1,4 +1,4 @@
-export declare function generateSchedule(): Promise<{
+export declare function generateSchedule(academicYearId: string): Promise<{
     schedules: Record<string, unknown>[];
     conflicts: string[];
 }>;

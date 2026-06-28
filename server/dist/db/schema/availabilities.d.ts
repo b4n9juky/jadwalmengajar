@@ -19,6 +19,23 @@ export declare const availabilities: import("drizzle-orm/mysql-core").MySqlTable
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        academicYearId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "academic_year_id";
+            tableName: "availabilities";
+            dataType: "string";
+            columnType: "MySqlVarChar";
+            data: string;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         teacherId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "teacher_id";
             tableName: "availabilities";

@@ -1,40 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { useState } from 'react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useAssignments, useTeachers, useSubjects, useClasses } from '../hooks/useQueries';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
-import type { TeachingAssignment, Teacher, Subject, ClassGroup } from '../types';
+import type { TeachingAssignment } from '../types';
 import { v4 as uuid } from 'uuid';
 
-const empty: TeachingAssignment = { id: '', teacherId: '', subjectId: '', classId: '', sessionsPerWeek: 2 };
+const empty: TeachingAssignment = { id: '', teacherId: '', subjectId: '', classId: '', sessionsPerWeek: 2, academicYearId: '' };
 
 export default function Assignments() {
-  const [data, setData] = useState<TeachingAssignment[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<ClassGroup[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, save, remove } = useAssignments(ayId);
+  const { data: teachers } = useTeachers(ayId);
+  const { data: subjects } = useSubjects(ayId);
+  const { data: classes } = useClasses(ayId);
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<TeachingAssignment | null>(null);
   const [form, setForm] = useState(empty);
 
-  const load = useCallback(() => {
-    Promise.all([api.getAssignments(), api.getTeachers(), api.getSubjects(), api.getClasses()]).then(
-      ([a, t, s, c]) => { setData(a); setTeachers(t); setSubjects(s); setClasses(c); }
-    );
-  }, []);
-
-  useEffect(load, [load]);
-
-  const add = () => { setEdit(null); setForm({ ...empty, id: uuid() }); setShow(true); };
+  const add = () => { setEdit(null); setForm({ ...empty, id: uuid(), academicYearId: ayId! }); setShow(true); };
   const openEdit = (a: TeachingAssignment) => { setEdit(a); setForm({ ...a }); setShow(true); };
 
-  const save = async () => {
-    await api.saveAssignment({ ...form, sessionsPerWeek: Number(form.sessionsPerWeek) });
+  const handleSave = async () => {
+    await save.mutateAsync({ ...form, sessionsPerWeek: Number(form.sessionsPerWeek) });
     setShow(false);
-    load();
   };
 
-  const remove = async (a: TeachingAssignment) => {
-    if (window.confirm('Hapus pengajaran ini?')) { await api.deleteAssignment(a.id); load(); }
+  const handleRemove = async (a: TeachingAssignment) => {
+    if (window.confirm('Hapus pengajaran ini?')) await remove.mutateAsync(a.id);
   };
 
   const set = (name: string, value: string) => setForm((prev) => ({ ...prev, [name]: value }));
@@ -58,7 +52,7 @@ export default function Assignments() {
         data={data}
         keyExtractor={(a) => a.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
         emptyMessage="Belum ada pengajaran"
       />
       {show && (
@@ -72,7 +66,7 @@ export default function Assignments() {
           ]}
           values={form as unknown as Record<string, unknown>}
           onChange={set}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShow(false)}
         />
       )}

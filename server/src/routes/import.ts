@@ -17,6 +17,11 @@ function parseExcel(buffer: Buffer): Record<string, unknown>[] {
 }
 
 router.post('/teachers', async (req, res) => {
+  const academicYearId = req.query.academicYearId as string;
+  if (!academicYearId) {
+    res.status(400).json({ error: 'academicYearId required' });
+    return;
+  }
   try {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -25,6 +30,7 @@ router.post('/teachers', async (req, res) => {
 
     const values = rows.map((row) => ({
       id: uuid(),
+      academicYearId,
       name: String(row['Nama'] || row['name'] || ''),
       nip: String(row['NIP'] || row['nip'] || ''),
       phone: String(row['Telepon'] || row['phone'] || ''),
@@ -36,14 +42,24 @@ router.post('/teachers', async (req, res) => {
       return;
     }
 
-    await db.insert(teachers).values(values);
+    for (const v of values) {
+      await db.insert(teachers).values(v).onDuplicateKeyUpdate({
+        set: { name: v.name, phone: v.phone, email: v.email },
+      });
+    }
     res.json({ imported: values.length });
   } catch (err) {
+    console.error('Import teachers error:', err);
     res.status(500).json({ error: 'Gagal import guru' });
   }
 });
 
 router.post('/subjects', async (req, res) => {
+  const academicYearId = req.query.academicYearId as string;
+  if (!academicYearId) {
+    res.status(400).json({ error: 'academicYearId required' });
+    return;
+  }
   try {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -52,6 +68,7 @@ router.post('/subjects', async (req, res) => {
 
     const values = rows.map((row) => ({
       id: uuid(),
+      academicYearId,
       name: String(row['Nama'] || row['name'] || ''),
       code: String(row['Kode'] || row['code'] || ''),
       totalSessions: Number(row['Sesi/Minggu'] || row['totalSessions'] || 0),
@@ -62,14 +79,24 @@ router.post('/subjects', async (req, res) => {
       return;
     }
 
-    await db.insert(subjects).values(values);
+    for (const v of values) {
+      await db.insert(subjects).values(v).onDuplicateKeyUpdate({
+        set: { name: v.name, code: v.code, totalSessions: v.totalSessions },
+      });
+    }
     res.json({ imported: values.length });
   } catch (err) {
+    console.error('Import subjects error:', err);
     res.status(500).json({ error: 'Gagal import mata pelajaran' });
   }
 });
 
 router.post('/classes', async (req, res) => {
+  const academicYearId = req.query.academicYearId as string;
+  if (!academicYearId) {
+    res.status(400).json({ error: 'academicYearId required' });
+    return;
+  }
   try {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -78,6 +105,7 @@ router.post('/classes', async (req, res) => {
 
     const values = rows.map((row) => ({
       id: uuid(),
+      academicYearId,
       name: String(row['Nama'] || row['name'] || ''),
       gradeLevel: Number(row['Tingkat'] || row['gradeLevel'] || 0),
       section: String(row['Bagian'] || row['section'] || ''),
@@ -88,14 +116,24 @@ router.post('/classes', async (req, res) => {
       return;
     }
 
-    await db.insert(classes).values(values);
+    for (const v of values) {
+      await db.insert(classes).values(v).onDuplicateKeyUpdate({
+        set: { name: v.name, gradeLevel: v.gradeLevel, section: v.section },
+      });
+    }
     res.json({ imported: values.length });
   } catch (err) {
+    console.error('Import classes error:', err);
     res.status(500).json({ error: 'Gagal import kelas' });
   }
 });
 
 router.post('/rooms', async (req, res) => {
+  const academicYearId = req.query.academicYearId as string;
+  if (!academicYearId) {
+    res.status(400).json({ error: 'academicYearId required' });
+    return;
+  }
   try {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -104,6 +142,7 @@ router.post('/rooms', async (req, res) => {
 
     const values = rows.map((row) => ({
       id: uuid(),
+      academicYearId,
       name: String(row['Nama'] || row['name'] || ''),
       code: String(row['Kode'] || row['code'] || ''),
       capacity: Number(row['Kapasitas'] || row['capacity'] || 30),
@@ -114,9 +153,14 @@ router.post('/rooms', async (req, res) => {
       return;
     }
 
-    await db.insert(rooms).values(values);
+    for (const v of values) {
+      await db.insert(rooms).values(v).onDuplicateKeyUpdate({
+        set: { name: v.name, code: v.code, capacity: v.capacity },
+      });
+    }
     res.json({ imported: values.length });
   } catch (err) {
+    console.error('Import rooms error:', err);
     res.status(500).json({ error: 'Gagal import ruangan' });
   }
 });

@@ -1,18 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { useState } from 'react';
+import { useAcademicYears } from '../hooks/useQueries';
 import type { AcademicYear } from '../types';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
 import { v4 as uuid } from 'uuid';
 
 export default function AcademicYears() {
-  const [data, setData] = useState<AcademicYear[]>([]);
+  const { data, save, remove } = useAcademicYears();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<AcademicYear | null>(null);
   const [form, setForm] = useState({ tahunAjaran: '', semester: 'ganjil' as 'ganjil' | 'genap' });
-
-  const load = useCallback(() => { api.getAcademicYears().then(setData); }, []);
-  useEffect(load, [load]);
 
   const openAdd = () => {
     setEditing(null);
@@ -26,20 +23,18 @@ export default function AcademicYears() {
     setShowModal(true);
   };
 
-  const save = async () => {
-    await api.saveAcademicYear({
+  const handleSave = async () => {
+    await save.mutateAsync({
       id: editing?.id || uuid(),
       tahunAjaran: form.tahunAjaran,
       semester: form.semester,
     });
     setShowModal(false);
-    load();
   };
 
-  const remove = async (item: AcademicYear) => {
+  const handleRemove = async (item: AcademicYear) => {
     if (window.confirm(`Hapus tahun ajaran ${item.tahunAjaran} ${item.semester}?`)) {
-      await api.deleteAcademicYear(item.id);
-      load();
+      await remove.mutateAsync(item.id);
     }
   };
 
@@ -66,7 +61,7 @@ export default function AcademicYears() {
         data={data}
         keyExtractor={(item) => item.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
       />
 
       {showModal && (
@@ -75,7 +70,7 @@ export default function AcademicYears() {
           fields={fields}
           values={form}
           onChange={(name, value) => setForm((f) => ({ ...f, [name]: value }))}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShowModal(false)}
         />
       )}

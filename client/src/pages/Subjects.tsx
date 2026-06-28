@@ -1,44 +1,44 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../api/client';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
+import { useSubjects } from '../hooks/useQueries';
 import DataTable from '../components/DataTable';
 import FormModal from '../components/FormModal';
 import type { Subject } from '../types';
 import { v4 as uuid } from 'uuid';
 
-const empty: Subject = { id: '', name: '', code: '', totalSessions: 0 };
+const empty: Subject = { id: '', name: '', code: '', totalSessions: 0, academicYearId: '' };
 
 export default function Subjects() {
-  const [data, setData] = useState<Subject[]>([]);
+  const { currentYear } = useAcademicYear();
+  const ayId = currentYear?.id;
+  const { data, save, remove, refetch } = useSubjects(ayId);
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Subject | null>(null);
   const [form, setForm] = useState(empty);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => { api.getSubjects().then(setData); }, []);
-  useEffect(load, [load]);
-
-  const add = () => { setEdit(null); setForm({ ...empty, id: uuid() }); setShow(true); };
+  const add = () => { setEdit(null); setForm({ ...empty, id: uuid(), academicYearId: ayId! }); setShow(true); };
   const openEdit = (s: Subject) => { setEdit(s); setForm({ ...s }); setShow(true); };
 
-  const save = async () => {
-    await api.saveSubject({ ...form, totalSessions: Number(form.totalSessions) });
+  const handleSave = async () => {
+    await save.mutateAsync({ ...form, totalSessions: Number(form.totalSessions) });
     setShow(false);
-    load();
   };
 
-  const remove = async (s: Subject) => {
-    if (window.confirm(`Hapus ${s.name}?`)) { await api.deleteSubject(s.id); load(); }
+  const handleRemove = async (s: Subject) => {
+    if (window.confirm(`Hapus ${s.name}?`)) await remove.mutateAsync(s.id);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !ayId) return;
     setImporting(true);
     try {
-      const result = await api.importSubjects(file);
+      const result = await api.importSubjects(ayId, file);
       alert(`Berhasil import ${result.imported} mata pelajaran`);
-      load();
+      refetch();
     } catch {
       alert('Gagal import file');
     }
@@ -82,7 +82,7 @@ export default function Subjects() {
         data={data}
         keyExtractor={(s) => s.id}
         onEdit={openEdit}
-        onDelete={remove}
+        onDelete={handleRemove}
         emptyMessage="Belum ada mata pelajaran"
       />
       {show && (
@@ -95,7 +95,7 @@ export default function Subjects() {
           ]}
           values={form as unknown as Record<string, unknown>}
           onChange={set}
-          onSave={save}
+          onSave={handleSave}
           onClose={() => setShow(false)}
         />
       )}

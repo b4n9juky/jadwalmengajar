@@ -19,12 +19,12 @@ async function getMaxDayOfWeek(): Promise<number> {
   return schoolType === 'swasta' ? 6 : 5;
 }
 
-export async function generateSchedule(): Promise<{ schedules: Record<string, unknown>[]; conflicts: string[] }> {
+export async function generateSchedule(academicYearId: string): Promise<{ schedules: Record<string, unknown>[]; conflicts: string[] }> {
   const maxDay = await getMaxDayOfWeek();
-  const allSlots = await db.select().from(timeSlots);
-  const allRooms = await db.select().from(rooms);
-  const allAssignments = await db.select().from(assignments);
-  const allAvailabilities = await db.select().from(availabilities);
+  const allSlots = await db.select().from(timeSlots).where(eq(timeSlots.academicYearId, academicYearId));
+  const allRooms = await db.select().from(rooms).where(eq(rooms.academicYearId, academicYearId));
+  const allAssignments = await db.select().from(assignments).where(eq(assignments.academicYearId, academicYearId));
+  const allAvailabilities = await db.select().from(availabilities).where(eq(availabilities.academicYearId, academicYearId));
 
   const teachingSlotsByDay: Record<number, typeof allSlots> = {};
   for (const ts of allSlots) {
@@ -120,10 +120,11 @@ export async function generateSchedule(): Promise<{ schedules: Record<string, un
     }
   }
 
-  await db.delete(schedules);
+  await db.delete(schedules).where(eq(schedules.academicYearId, academicYearId));
   if (result.length > 0) {
     const values = result.map((r) => ({
       id: r.id as string,
+      academicYearId,
       teacherId: r.teacherId as string,
       subjectId: r.subjectId as string,
       classId: r.classId as string,
